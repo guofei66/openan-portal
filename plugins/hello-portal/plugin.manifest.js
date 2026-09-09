@@ -18,12 +18,19 @@
 import { Sparkles } from 'lucide-react';
 
 /**
- * Hello Portal — mock plugin to validate the full framework flow:
- *   1. Portal loads this manifest from plugins.config.js
- *   2. Header renders the "Hello Portal" menu item dynamically
- *   3. React Router serves the /hello route
- *   4. The component accesses PortalContext (auth, theme, i18n)
+ * Hello Portal — reference implementation of the plugin contract.
+ *
+ * This is a complete, working example of how a plugin is defined. When
+ * implementing a new plugin, copy this folder as a starting point and
+ * study how each piece of the contract is exercised:
+ *   1. Auto-discovery picks up this manifest from the plugins/ directory
+ *      (no registration needed — just drop the folder in)
+ *   2. Header renders the "Hello Portal" menu item dynamically from `menu`
+ *   3. React Router serves the /hello route declared in `routes`
+ *   4. The component accesses PortalContext (auth, theme, i18n) via
+ *      usePortalContext()
  *   5. Plugin-specific i18n namespace loads and works
+ *   6. `standalone` enables running the plugin in isolation via MockPortal
  */
 export default {
     id: 'hello-portal',

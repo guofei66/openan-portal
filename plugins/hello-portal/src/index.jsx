@@ -20,10 +20,11 @@ import { usePortalContext } from '@openan/portal-sdk';
 import { Sun, Moon, User, Globe, Server, Sparkles } from 'lucide-react';
 
 /**
- * Hello Portal — the mock plugin's main view.
+ * Hello Portal — the reference plugin's main view.
  *
  * Demonstrates that PortalContext (auth, theme, i18n, api) is correctly
  * injected by the Portal shell and accessible from within a plugin.
+ * Use this component as a template when implementing plugin views.
  */
 export default function HelloPortal() {
     const { t } = useTranslation();
