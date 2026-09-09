@@ -1,0 +1,4 @@
+{
+    "_comment": "Per-plugin overrides for delivery scenarios. Set enabled:false to exclude a plugin (source plugins are tree-shaken at build time; bundle plugins are simply not fetched). Adding a plugin requires NO entry here - drop the folder into plugins/ and it is auto-discovered. Business plugins (registry-center, orchestration-center, ...) are contributed in separate PRs; this baseline ships only the hello-portal reference plugin.",
+    "hello-portal": { "enabled": true }
+}
