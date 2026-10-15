@@ -1,5 +1,7 @@
 # OpenAN Portal 独立部署包
 
+> English documentation: [README-DEPLOY-EN.md](./README-DEPLOY-EN.md) / 英文版部署文档见同目录
+
 本包内含 OpenAN Portal（插件化统一门户）的**生产构建产物**与一键部署脚本，可在任意新服务器上独立部署。
 
 - 构建来源：`openan-portal` 仓库 `feature/portal-bundle-plugins` 分支（与 [PR #13](https://github.com/project-openan/openan-portal/pull/13) 一致，本体插件默认禁用）
