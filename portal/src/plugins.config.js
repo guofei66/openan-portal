@@ -55,9 +55,9 @@ const bundledPlugins = [
         id: 'ontology-demo',
         mode: 'bundle',
         entry: '/plugins/ontology-demo',   // → portal/public/plugins/ontology-demo
-        // Disabled by default: the ontology backend (:8787) is an optional
-        // demo dependency. Flip to true for deliveries that ship it.
-        enabled: false,
+        // The ontology backend (:8787) is an optional demo dependency —
+        // deliveries without it should flip this back to false.
+        enabled: true,
     },
     // Example REMOTE mode (served by the plugin's own server with CORS):
     // {
