@@ -59,14 +59,19 @@ const ORCHESTRATE_BASE = () => `${getBaseUrl()}/rest/v1/orchestrate`;
 
 const api = axios.create({ timeout: 120000, withCredentials: true });
 
+function handleApiError(error, authScope = 'host') {
+    if (authScope !== 'host') return Promise.reject(error);
+    if (error.response?.status === 403 && error.response.data?.data?.must_change_password === true) {
+        window.dispatchEvent(new Event('auth-password-change-required'));
+    } else if (error.response?.status === 401 && !error.config?.skipAuthExpired) {
+        window.dispatchEvent(new Event('auth-expired'));
+    }
+    return Promise.reject(error);
+}
+
 api.interceptors.response.use(
     (response) => response.data,
-    (error) => {
-        if (error.response && error.response.status === 401) {
-            window.dispatchEvent(new Event('auth-expired'));
-        }
-        return Promise.reject(error);
-    }
+    handleApiError
 );
 
 export default api;
@@ -76,20 +81,24 @@ export default api;
 // path in their manifest. The Portal calls this to create a dedicated API
 // client that routes to that backend via the corresponding Vite/nginx proxy.
 
-export function createApi(gateway) {
+export function createApi(gateway, { authScope = 'component' } = {}) {
+    if (!['host', 'component'].includes(authScope)) throw new Error('Unknown API authentication scope');
+    const baseURL = trimTrailingSlash(gateway || defaultGateway);
     const instance = axios.create({
-        baseURL: trimTrailingSlash(gateway || defaultGateway),
+        baseURL,
         timeout: 120000,
         withCredentials: true,
     });
+    // Older independently-built service layers already include their gateway.
+    // Accept both forms without creating /api/foo/api/foo/... requests.
+    const normalize = (config = {}) => ({ ...config, url: config.url?.startsWith(`${baseURL}/`)
+        ? config.url.slice(baseURL.length) : config.url });
+    instance.interceptors.request.use(normalize);
+    const getUri = instance.getUri.bind(instance);
+    instance.getUri = config => getUri(normalize(config));
     instance.interceptors.response.use(
         (response) => response.data,
-        (error) => {
-            if (error.response && error.response.status === 401) {
-                window.dispatchEvent(new Event('auth-expired'));
-            }
-            return Promise.reject(error);
-        }
+        error => handleApiError(error, authScope)
     );
     return instance;
 }
@@ -110,6 +119,13 @@ export async function login(username, password) {
 
 export async function logout() {
     await api.post(`${ORCHESTRATE_BASE()}/auth/logout`);
+}
+
+export async function changePassword(oldPassword, newPassword) {
+    // Wrong current password is also 401; keep the form open for correction.
+    return api.post(`${ORCHESTRATE_BASE()}/auth/change-password`, {
+        old_password: oldPassword, new_password: newPassword,
+    }, { skipAuthExpired: true });
 }
 
 // ──── Business API (used by shared-workflow components via @/service/api.js) ────

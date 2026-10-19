@@ -45,9 +45,9 @@
  * @property {MenuItem[]}  menu     — Menu items to register in Portal navigation
  * @property {PluginRoute[]} routes  — Routes to register in Portal router
  * @property {PluginI18n} [i18n]     — Plugin-specific i18n resources
- * @property {(ctx: import('./plugin-context.js').PortalContextValue) => void|Promise<void>} [onInit]    — Called once after registration
- * @property {() => void} [onActivate]   — Called when the plugin becomes the active view
- * @property {() => void} [onDeactivate] — Called when the plugin leaves the active view
+ * Lifecycle and resources belong to the React component (useEffect cleanup).
+ * Menus/routes are declarative; imperative registration and manifest hooks
+ * are deliberately unsupported, rather than silently ignored.
  * @property {{ enabled: boolean, entry: string }} [standalone] — Standalone mode config
  */
 
@@ -58,11 +58,14 @@
  * @param {PluginManifest} manifest
  * @returns {PluginManifest} — the validated manifest (same reference)
  */
-export function validateManifest(manifest) {
+export function validateManifestMetadata(manifest) {
     const errors = [];
 
     if (!manifest || typeof manifest !== 'object') {
         throw new Error('Plugin manifest must be an object');
+    }
+    for (const hook of ['onInit', 'onActivate', 'onDeactivate']) {
+        if (manifest[hook] !== undefined) errors.push(`${hook} is unsupported; use React component effects`);
     }
     if (!manifest.id || typeof manifest.id !== 'string') {
         errors.push('manifest.id is required (string)');
@@ -77,26 +80,54 @@ export function validateManifest(manifest) {
         errors.push('manifest.routes must be an array');
     } else {
         manifest.routes.forEach((r, i) => {
-            if (!r.path) errors.push(`manifest.routes[${i}].path is required`);
-            if (typeof r.component !== 'function') {
-                errors.push(`manifest.routes[${i}].component must be a lazy-import function`);
-            }
+            if (typeof r?.path !== 'string' || !r.path.startsWith('/')) errors.push(`manifest.routes[${i}].path must be absolute`);
         });
+        if (new Set(manifest.routes.map(r => r?.path)).size !== manifest.routes.length) errors.push('duplicate route path');
     }
-    if (manifest.menu && !Array.isArray(manifest.menu)) {
+    if (manifest.menu !== undefined && !Array.isArray(manifest.menu)) {
         errors.push('manifest.menu must be an array if present');
     }
+    if (manifest.backend !== undefined && (typeof manifest.backend?.gateway !== 'string' ||
+        !/^(\/|https?:\/\/)/.test(manifest.backend.gateway))) {
+        errors.push('backend.gateway must be an absolute URL or same-origin path');
+    }
+    if (manifest.backend?.authScope !== undefined && !['host', 'component'].includes(manifest.backend.authScope)) {
+        errors.push('backend.authScope must be host or component');
+    }
+    for (const file of ['entry', 'css']) {
+        if (manifest[file] !== undefined && (typeof manifest[file] !== 'string' || !/^[A-Za-z0-9_-][A-Za-z0-9_.-]*$/.test(manifest[file]))) {
+            errors.push(`unsafe artifact ${file} filename`);
+        }
+    }
+    if (Array.isArray(manifest.menu)) {
+        for (const item of manifest.menu) {
+            if (!item?.id || typeof item.labelKey !== 'string' || typeof item.route !== 'string' || !item.route.startsWith('/')) {
+                errors.push('menu entries require id, labelKey and absolute route');
+            }
+        }
+    }
     if (manifest.i18n) {
-        if (!manifest.i18n.namespace) {
+        if (typeof manifest.i18n.namespace !== 'string' || !manifest.i18n.namespace) {
             errors.push('manifest.i18n.namespace is required when i18n is present');
         }
-        if (!manifest.i18n.resources || typeof manifest.i18n.resources !== 'object') {
+        if (!manifest.i18n.resources || typeof manifest.i18n.resources !== 'object' || Array.isArray(manifest.i18n.resources)) {
             errors.push('manifest.i18n.resources must be an object');
+        } else if (Object.values(manifest.i18n.resources).some(loader => typeof loader !== 'function')) {
+            errors.push('manifest.i18n.resources must contain loader functions (source mode only)');
         }
     }
 
     if (errors.length > 0) {
         throw new Error(`Invalid plugin manifest "${manifest.id || '?'}": ${errors.join('; ')}`);
     }
+    return manifest;
+}
+
+/** The same declarative contract is checked before publication and loading. */
+export function validateManifest(manifest) {
+    validateManifestMetadata(manifest);
+    manifest.routes.forEach((route, index) => {
+        if (typeof route.component !== 'function') throw new Error(`Invalid plugin manifest "${manifest.id}": manifest.routes[${index}].component must be a lazy-import function`);
+    });
     return manifest;
 }
