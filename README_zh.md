@@ -447,10 +447,20 @@ npm run build
 
 # 代码检查
 npm run lint
+
+# 全量单元测试(CI 同款命令,含 SDK/壳层/插件契约测试)
+npm test
+
+# 覆盖率报告(输出到 coverage/)
+npm run test:coverage
 ```
 
 Portal 开发服务器运行在 http://localhost:3003,代理 `/api/orchestrate/`
 到后端 http://127.0.0.1:5001。
+
+测试体系与合入门禁详见 **[docs/OpenAN-Portal-Testing.md](./docs/OpenAN-Portal-Testing.md)**:
+每个 PR 须通过 CI 的 lint / test / build 三项门禁,插件改动必须附带
+`plugins/<id>/tests/` 契约测试。
 
 ### 验证结果
 

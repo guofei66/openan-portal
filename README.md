@@ -465,10 +465,21 @@ npm run build
 
 # Lint
 npm run lint
+
+# Full unit test suite (same command CI runs — SDK, shell & plugin contracts)
+npm test
+
+# Coverage report (written to coverage/)
+npm run test:coverage
 ```
 
 The Portal dev server runs at http://localhost:3003 and proxies
 `/api/orchestrate/` to the backend at http://127.0.0.1:5001.
+
+See **[docs/OpenAN-Portal-Testing.md](./docs/OpenAN-Portal-Testing.md)** for the
+test suite layout and merge gates: every PR must pass the CI lint / test /
+build jobs, and plugin changes must include `plugins/<id>/tests/` contract
+tests.
 
 ### Verification Results
 
