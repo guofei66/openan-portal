@@ -812,6 +812,33 @@ const ExecutionCenter = () => {
         loadTags();
     }, []);
 
+    // Deep link: /execution?workflow=<id> selects that PSOP on open
+    // (showcase cards link here with the formal workflow id). The canvas
+    // effect below fetches the graph by id; the match-list panel gets a
+    // synthetic entry so the selection is visible and runnable. Runs once
+    // on mount — a bad id simply leaves the empty search panel.
+    useEffect(() => {
+        try {
+            const wfId = new URLSearchParams(window.location.search).get('workflow');
+            if (!wfId) return;
+            setSelectedId(wfId);
+            setWorkflowSource('retrieved');
+            getWorkflowById(wfId)
+                .then(res => {
+                    if (res?.status === 'success') {
+                        setMatchedWorkflows([{
+                            workflow_id: res.data.id || wfId,
+                            name: res.data.name,
+                            description: res.data.description,
+                            tags: res.data.tags || []
+                        }]);
+                    }
+                })
+                .catch(err => console.error("Deep-link workflow load failed:", err));
+        } catch (e) { /* ignore malformed search */ }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     const handleNodeSelect = useCallback((node) => {
         if (!node) {
             setSelectedNodeId(null);
