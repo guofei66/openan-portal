@@ -377,11 +377,6 @@ const LogEntry = React.memo(({ event, isDark, t, isSelected }) => {
                     ? 'bg-blue-500/5 border-blue-500 shadow-[inset_4px_0_0_0_#3b82f6]' 
                     : 'border-zinc-100 dark:border-zinc-800/50'}`}
         >
-                                            className={`absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-2xl transition-all duration-300 shadow-xl
-                                                ${runningId === wf.workflow_id 
-                                                    ? 'opacity-100 scale-100 bg-rose-500 shadow-rose-500/20' 
-                                                    : (selectedId === wf.workflow_id ? 'opacity-100 scale-100 bg-emerald-500 shadow-emerald-500/20' : 'opacity-0 scale-75 bg-blue-600 group-hover:opacity-100 group-hover:scale-100 shadow-blue-500/20')}
-                                                hover:scale-110 active:scale-95 text-white z-10`}
             <div className="flex items-center gap-4 mb-3">
                 <div className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border-2 shadow-sm transition-all ${bgLight}`}>
                     {isNegotiation ? <MessageSquare size={15} className="opacity-80" /> : <Bot size={15} className="opacity-80" />}

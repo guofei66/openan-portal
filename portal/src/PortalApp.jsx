@@ -183,17 +183,27 @@ function PortalShell({ pluginsConfig }) {
 
     if (routes.length === 0) {
         return (
-            <div className="h-screen flex items-center justify-center bg-zinc-50 dark:bg-[#09090B]">
-                <div className="text-center">
-                    <p className="text-zinc-400 text-sm mb-4">{t('portal.no_plugins')}</p>
-                    <button
-                        onClick={() => setShowPluginManager(true)}
-                        className="px-4 py-2 rounded-xl bg-blue-500 text-white text-sm font-bold hover:bg-blue-600 transition-all"
-                    >
-                        {t('plugin_manager.title')}
-                    </button>
+            <>
+                <div className="h-screen flex items-center justify-center bg-zinc-50 dark:bg-[#09090B]">
+                    <div className="text-center">
+                        <p className="text-zinc-400 text-sm mb-4">{t('portal.no_plugins')}</p>
+                        <button
+                            onClick={() => setShowPluginManager(true)}
+                            className="px-4 py-2 rounded-xl bg-blue-500 text-white text-sm font-bold hover:bg-blue-600 transition-all"
+                        >
+                            {t('plugin_manager.title')}
+                        </button>
+                    </div>
                 </div>
-            </div>
+                {showPluginManager && (
+                    <PluginManager
+                        plugins={plugins}
+                        disabledIds={disabledIds}
+                        onToggle={togglePlugin}
+                        onClose={() => setShowPluginManager(false)}
+                    />
+                )}
+            </>
         );
     }
 
