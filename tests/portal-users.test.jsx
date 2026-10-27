@@ -101,6 +101,7 @@ const USERS = [
 
 beforeEach(async () => {
     window.localStorage.clear();
+    window.sessionStorage.clear();
     window.history.replaceState({}, '', '/');
     vi.clearAllMocks();
     await i18n.changeLanguage('en');
@@ -108,7 +109,8 @@ beforeEach(async () => {
     document.body.appendChild(node);
     root = createRoot(node);
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    // Default: guest browsing enabled, registration open.
+    // Default: guest browsing available as an explicit choice, registration
+    // open. Visitors still land on the login card by default.
     mocks.authCheck.mockResolvedValue({ auth_required: true, guest_allowed: true, registration_enabled: true });
     mocks.register.mockResolvedValue({});
     mocks.listUsers.mockResolvedValue(USERS);
@@ -118,24 +120,42 @@ afterEach(async () => {
     node.remove();
 });
 
-test('guests browse the whole portal with login and register entries', async () => {
+test('visitors land on the login card and may opt into guest browsing', async () => {
     await render([plugin('healthy')]);
+    // Login is required by default: the portal itself is not rendered yet.
+    expect(node.textContent).toContain('Access Password');
+    expect(node.textContent).not.toContain('HEALTHY_CONTENT');
+    // The guest entry is offered below the login card.
+    expect(buttons('No account? Browse as guest →')).toHaveLength(1);
+
+    await clickByText('No account? Browse as guest →');
     expect(node.textContent).toContain('HEALTHY_CONTENT');
     expect(node.textContent).toContain('Guest');
     expect(buttons('Login')).toHaveLength(1);
     expect(buttons('Register')).toHaveLength(1);
 });
 
-test('an expired guest session keeps browsing instead of locking the portal', async () => {
+test('an expired authenticated session returns to the login card', async () => {
+    mocks.login.mockResolvedValue({ username: 'boss', role: 'admin', must_change_password: false });
     await render([plugin('healthy')]);
-    await act(async () => window.dispatchEvent(new Event('auth-expired')));
+    await clickByText('No account? Browse as guest →');
+    await clickByText('Login');
+    const dialog = node.querySelector('[role=dialog]');
+    await change(dialog.querySelector('input[type=text]'), 'boss');
+    await change(byPlaceholder('Enter access password...'), 'pw');
+    await act(async () => Simulate.submit(dialog.querySelector('form')));
     await flush();
     expect(node.textContent).toContain('HEALTHY_CONTENT');
-    expect(node.textContent).toContain('Guest');
+
+    await act(async () => window.dispatchEvent(new Event('auth-expired')));
+    await flush();
+    expect(node.textContent).toContain('Access Password');
+    expect(node.textContent).not.toContain('HEALTHY_CONTENT');
 });
 
 test('visitors can register from the guest dialog and are sent back to the login form', async () => {
     await render([plugin('healthy')]);
+    await clickByText('No account? Browse as guest →');
     await clickByText('Register');
 
     const dialog = node.querySelector('[role=dialog]');
@@ -154,6 +174,7 @@ test('visitors can register from the guest dialog and are sent back to the login
 test('logging in from the guest dialog opens the admin user management page', async () => {
     mocks.login.mockResolvedValue({ username: 'boss', role: 'admin', must_change_password: false });
     await render([plugin('healthy')]);
+    await clickByText('No account? Browse as guest →');
 
     await clickByText('Login');
     const dialog = node.querySelector('[role=dialog]');
@@ -224,9 +245,10 @@ test('non-admin users never reach the user management route', async () => {
     expect(buttons('Change Password')).toHaveLength(1);
 });
 
-test('logging out returns to guest browsing', async () => {
+test('logging out returns to the login card', async () => {
     mocks.login.mockResolvedValue({ username: 'boss', role: 'admin', must_change_password: false });
     await render([plugin('healthy')]);
+    await clickByText('No account? Browse as guest →');
     await clickByText('Login');
     const dialog = node.querySelector('[role=dialog]');
     await change(dialog.querySelector('input[type=text]'), 'boss');
@@ -236,22 +258,26 @@ test('logging out returns to guest browsing', async () => {
     expect(node.textContent).toContain('boss');
 
     await clickByText('Logout');
-    expect(node.textContent).toContain('Guest');
-    expect(node.textContent).toContain('HEALTHY_CONTENT');
+    expect(node.textContent).toContain('Access Password');
+    expect(node.textContent).not.toContain('HEALTHY_CONTENT');
     expect(node.textContent).not.toContain('boss');
 });
 
-test('registration-disabled servers hide the register entry', async () => {
+test('registration-disabled servers show a plain login card with the guest entry', async () => {
     mocks.authCheck.mockResolvedValue({ auth_required: true, guest_allowed: true, registration_enabled: false });
     await render([plugin('healthy')]);
-    expect(buttons('Login')).toHaveLength(1);
-    expect(buttons('Register')).toHaveLength(0);
+    expect(node.textContent).toContain('Access Password');
+    // No register tab or create button, but the guest entry remains.
+    expect(buttons('Sign up')).toHaveLength(0);
+    expect(buttons('Create Account')).toHaveLength(0);
+    expect(buttons('No account? Browse as guest →')).toHaveLength(1);
 });
 
-test('strict servers keep the full-screen login for guests when guest mode is off', async () => {
+test('strict servers keep the full-screen login without any guest entry', async () => {
     mocks.authCheck.mockResolvedValue({ auth_required: true, guest_allowed: false, registration_enabled: false });
     await render([plugin('healthy')]);
     expect(node.textContent).toContain('Access Password');
     expect(node.textContent).not.toContain('HEALTHY_CONTENT');
     expect(node.querySelectorAll('input[type=text]')).toHaveLength(1);
+    expect(buttons('No account? Browse as guest →')).toHaveLength(0);
 });

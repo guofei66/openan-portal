@@ -34,7 +34,7 @@ import { Sun, Moon } from 'lucide-react';
  */
 export default function Login({ variant = 'page', initialTab = 'login', onSuccess, onCancel }) {
     const { t } = useTranslation();
-    const { login, registrationEnabled, passwordChanged } = useAuth();
+    const { login, registrationEnabled, passwordChanged, guestAllowed, enterAsGuest } = useAuth();
     const { isDark, toggle } = useTheme();
 
     const [tab, setTab] = useState(initialTab === 'register' && registrationEnabled ? 'register' : 'login');
@@ -236,6 +236,17 @@ export default function Login({ variant = 'page', initialTab = 'login', onSucces
                     </p>
                 </div>
                 {card}
+                {variant === 'page' && guestAllowed && (
+                    <div className="mt-4 text-center">
+                        <button
+                            type="button"
+                            onClick={() => enterAsGuest()}
+                            className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline transition-all"
+                        >
+                            {t('login.guest_entry')}
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );
