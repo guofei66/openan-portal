@@ -18,7 +18,7 @@
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Sun, Moon, LogOut, Puzzle, ChevronDown, Users, KeyRound } from 'lucide-react';
+import { Sun, Moon, LogOut, Puzzle, ChevronDown, Settings, Users, KeyRound } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext.jsx';
 import { useTheme } from '../../theme/ThemeContext.jsx';
 import logo from '../../assets/openan-logo.png';
@@ -45,15 +45,22 @@ export default function Header({ plugins, disabledIds, onManagePlugins, onLogin,
 
     const [openGroup, setOpenGroup] = useState(null);
     const groupRef = useRef(null);
+    // Settings dropdown: groups plugin management, change password and user
+    // management behind one entry.
+    const [settingsOpen, setSettingsOpen] = useState(false);
+    const settingsRef = useRef(null);
 
     const activeCount = plugins.filter((p) => !disabledIds.has(p.id)).length;
     const hasDisabled = disabledIds.size > 0;
 
-    // Close dropdown on outside click
+    // Close dropdowns on outside click
     useEffect(() => {
         const handler = (e) => {
             if (groupRef.current && !groupRef.current.contains(e.target)) {
                 setOpenGroup(null);
+            }
+            if (settingsRef.current && !settingsRef.current.contains(e.target)) {
+                setSettingsOpen(false);
             }
         };
         document.addEventListener('mousedown', handler);
@@ -200,10 +207,69 @@ export default function Header({ plugins, disabledIds, onManagePlugins, onLogin,
 
             {/* Right controls */}
             <div className="flex items-center gap-2">
-                <button type="button" onClick={onManagePlugins} title={t('plugin_manager.title')}
-                    aria-label={t('plugin_manager.title')} className="p-2 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800">
-                    <Puzzle size={18} /><span className="text-xs">{activeCount}{hasDisabled ? `/${plugins.length}` : ''}</span>
-                </button>
+                {/* Settings menu — plugin management, change password and user
+                    management consolidated under one dropdown */}
+                <div className="relative" ref={settingsRef}>
+                    <button
+                        type="button"
+                        onClick={() => setSettingsOpen((v) => !v)}
+                        aria-label={t('nav.settings')}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all"
+                    >
+                        <Settings size={14} />
+                        {t('nav.settings')}
+                        <ChevronDown
+                            size={12}
+                            className={`transition-transform ${settingsOpen ? 'rotate-180' : ''}`}
+                        />
+                    </button>
+                    {settingsOpen && (
+                        <div className="absolute right-0 top-full mt-2 w-44 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-lg py-1.5 z-50">
+                            {authRequired && isAuthenticated && isAdmin && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setSettingsOpen(false);
+                                        navigate('/users');
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-all"
+                                >
+                                    <Users size={14} />
+                                    <span className="flex-1 text-left">{t('users.title')}</span>
+                                </button>
+                            )}
+                            {authRequired && isAuthenticated && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setSettingsOpen(false);
+                                        onChangePassword?.();
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-all"
+                                >
+                                    <KeyRound size={14} />
+                                    <span className="flex-1 text-left">{t('login.change_password_title')}</span>
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setSettingsOpen(false);
+                                    onManagePlugins();
+                                }}
+                                className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-all"
+                            >
+                                <Puzzle size={14} />
+                                <span className="flex-1 text-left">{t('plugin_manager.title')}</span>
+                                {hasDisabled && (
+                                    <span className="text-[10px] text-zinc-400">
+                                        {activeCount}/{plugins.length}
+                                    </span>
+                                )}
+                            </button>
+                        </div>
+                    )}
+                </div>
                 {authRequired && isGuest && (
                     <>
                         <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400">
@@ -235,22 +301,6 @@ export default function Header({ plugins, disabledIds, onManagePlugins, onLogin,
                                 </span>
                             )}
                         </span>
-                        {isAdmin && (
-                            <button
-                                onClick={() => navigate('/users')}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all"
-                            >
-                                <Users size={14} />
-                                {t('users.title')}
-                            </button>
-                        )}
-                        <button
-                            onClick={() => onChangePassword?.()}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all"
-                        >
-                            <KeyRound size={14} />
-                            {t('login.change_password_title')}
-                        </button>
                         <button
                             onClick={logout}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all"

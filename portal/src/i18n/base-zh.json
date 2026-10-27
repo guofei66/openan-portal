@@ -1,7 +1,8 @@
 {
   "nav": {
     "brand": "OpenAN",
-    "subtitle": "开放自治网络"
+    "subtitle": "开放自治网络",
+    "settings": "设置"
   },
   "login": {
     "title": "访问密码",

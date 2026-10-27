@@ -1,7 +1,8 @@
 {
   "nav": {
     "brand": "OpenAN",
-    "subtitle": "Open Autonomous Networks"
+    "subtitle": "Open Autonomous Networks",
+    "settings": "Settings"
   },
   "login": {
     "title": "Access Password",

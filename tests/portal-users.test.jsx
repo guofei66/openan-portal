@@ -199,6 +199,11 @@ test('logging in from the guest dialog opens the admin user management page', as
     expect(buttons('Login')).toHaveLength(0);
     expect(buttons('Register')).toHaveLength(0);
     expect(node.textContent).not.toContain('Guest');
+    // User management now lives under the settings menu.
+    await clickByText('Settings');
+    expect(buttons('User Management')).toHaveLength(1);
+    expect(buttons('Change Password')).toHaveLength(1);
+    expect(buttons('Plugin Management')).toHaveLength(1);
     await clickByText('User Management');
     expect(window.location.pathname).toBe('/users');
     expect(apiListUsers).toHaveBeenCalled();
@@ -253,9 +258,12 @@ test('non-admin users never reach the user management route', async () => {
     expect(window.location.pathname).toBe('/healthy');
     expect(node.textContent).toContain('HEALTHY_CONTENT');
     expect(node.textContent).not.toContain('Create User');
+    // The settings menu offers plugin management and self-service password
+    // change, but never the admin user management entry.
+    await clickByText('Settings');
     expect(buttons('User Management')).toHaveLength(0);
-    // The self-service change-password entry is still offered.
     expect(buttons('Change Password')).toHaveLength(1);
+    expect(buttons('Plugin Management')).toHaveLength(1);
 });
 
 test('logging out returns to the login card', async () => {
@@ -315,7 +323,8 @@ test('signed-in users load their plugin choices from the server', async () => {
 test('guests keep plugin choices in the browser only', async () => {
     await render([plugin('healthy')]);
     await clickByText('No account? Browse as guest →');
-    await click(node.querySelector('button[aria-label="Plugin Management"]'));
+    await clickByText('Settings');
+    await clickByText('Plugin Management');
     await click(node.querySelector('button[aria-label="Disable"]'));
     await flush();
 
@@ -323,4 +332,13 @@ test('guests keep plugin choices in the browser only', async () => {
     expect(JSON.parse(localStorage.getItem('openan-disabled-plugins'))).toEqual(['healthy']);
     // The plugin disappeared from the shell.
     expect(node.textContent).not.toContain('HEALTHY_CONTENT');
+});
+
+test('guests see only plugin management inside the settings menu', async () => {
+    await render([plugin('healthy')]);
+    await clickByText('No account? Browse as guest →');
+    await clickByText('Settings');
+    expect(buttons('Plugin Management')).toHaveLength(1);
+    expect(buttons('User Management')).toHaveLength(0);
+    expect(buttons('Change Password')).toHaveLength(0);
 });
