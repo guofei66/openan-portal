@@ -47,7 +47,9 @@ test('all-disabled plugins can be enabled again from the empty state and persist
 });
 test('header provides a reachable manager', async () => {
     await render([plugin('healthy')]);
-    await click(node.querySelector('button[aria-label="Plugin Management"]'));
+    await click(node.querySelector('button[aria-label="Settings"]'));
+    const item = [...node.querySelectorAll('button')].find((b) => b.textContent.startsWith('Plugin Management'));
+    await click(item);
     expect(node.querySelector('h2').textContent).toBe('Plugin Management');
 });
 test('crashing plugin does not poison another route', async () => {
@@ -113,6 +115,6 @@ test.each(['manifest', 'locale'])('pending source %s is isolated by its deadline
         await act(async () => vi.advanceTimersByTimeAsync(15001));
         expect(node.textContent).toContain('HEALTHY_CONTENT');
         expect(node.querySelector('[role=alert]').textContent).toContain('timed out');
-        expect(node.querySelector('button[aria-label="Plugin Management"]')).toBeTruthy();
+        expect(node.querySelector('button[aria-label="Settings"]')).toBeTruthy();
     } finally { vi.useRealTimers(); }
 });
