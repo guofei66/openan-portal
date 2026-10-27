@@ -29,6 +29,8 @@ import { ErrorBoundary } from './components/error_boundary/index.jsx';
 import Loading from './components/loading.jsx';
 import Login from './auth/Login.jsx';
 import ChangePassword from './auth/ChangePassword.jsx';
+import AuthModal from './auth/AuthModal.jsx';
+import UserManagement from './components/user_management/index.jsx';
 import PluginManager from './components/plugin_manager/index.jsx';
 import api, { createApi } from './service/api.js';
 
@@ -58,6 +60,9 @@ function PortalShell({ pluginsConfig }) {
     const [plugins, setPlugins] = useState(null);
     const [pluginErrors, setPluginErrors] = useState([]);
     const [showPluginManager, setShowPluginManager] = useState(false);
+    // Guest-mode auth dialog: null | 'login' | 'register'
+    const [authModal, setAuthModal] = useState(null);
+    const [showChangePassword, setShowChangePassword] = useState(false);
     const [disabledIds, setDisabledIds] = useState(() => {
         try {
             const saved = localStorage.getItem(DISABLED_KEY);
@@ -157,8 +162,9 @@ function PortalShell({ pluginsConfig }) {
     const portalCtx = useMemo(() => ({
         auth: {
             user: auth.currentUser,
-            role: auth.role,
+            role: auth.currentRole ?? (auth.authRequired ? 'user' : null),
             isAuthenticated: auth.isAuthenticated,
+            isGuest: auth.isGuest,
             login: auth.login,
             logout: auth.logout,
             check: auth.checkAuth,
@@ -182,8 +188,11 @@ function PortalShell({ pluginsConfig }) {
         return <Loading />;
     }
 
-    if (auth.mustChangePassword) return <ChangePassword />;
-    if (!auth.isAuthenticated) {
+    if (auth.mustChangePassword) return <ChangePassword onDone={auth.completePasswordChange} />;
+
+    // No session and no guest mode → full-screen login. Guest mode keeps
+    // rendering the portal below; the header offers login/register.
+    if (!auth.isAuthenticated && !auth.isGuest) {
         return <Login />;
     }
 
@@ -220,10 +229,23 @@ function PortalShell({ pluginsConfig }) {
                         plugins={plugins}
                         disabledIds={disabledIds}
                         onManagePlugins={() => setShowPluginManager(true)}
+                        onLogin={(tab) => setAuthModal(tab || 'login')}
+                        onChangePassword={() => setShowChangePassword(true)}
                     />
                     {failures}
                     <main className="flex-1 min-h-0 relative overflow-hidden">
                         <Routes>
+                            {/* Core admin route — user management (admin only) */}
+                            <Route
+                                path="/users"
+                                element={
+                                    auth.isAdmin ? (
+                                        <UserManagement />
+                                    ) : (
+                                        <Navigate replace to={routes[0].path} />
+                                    )
+                                }
+                            />
                             {routes.map((r) => {
                                 const plugin = visiblePlugins.find((p) => p.id === r.pluginId);
                                 const pluginApi = pluginApis.get(plugin.id);
@@ -259,6 +281,29 @@ function PortalShell({ pluginsConfig }) {
                     </main>
                 </div>
                 {manager}
+                {authModal && (
+                    <AuthModal
+                        initialTab={authModal}
+                        onClose={() => setAuthModal(null)}
+                    />
+                )}
+                {showChangePassword && (
+                    <div
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm font-sans"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={t('login.change_password_title')}
+                        onClick={() => setShowChangePassword(false)}
+                    >
+                        <div onClick={(e) => e.stopPropagation()} className="mx-6">
+                            <ChangePassword
+                                variant="modal"
+                                onDone={() => setShowChangePassword(false)}
+                                onCancel={() => setShowChangePassword(false)}
+                            />
+                        </div>
+                    </div>
+                )}
         </PluginRegistryProvider>
     );
 }

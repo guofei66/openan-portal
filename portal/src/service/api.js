@@ -128,6 +128,50 @@ export async function changePassword(oldPassword, newPassword) {
     }, { skipAuthExpired: true });
 }
 
+// Self-registration (public endpoint, enabled via auth.register.enabled).
+export async function register(username, password) {
+    const resp = await api.post(`${ORCHESTRATE_BASE()}/auth/register`, {
+        username,
+        password,
+    });
+    return resp.data;
+}
+
+// ──── User management (admin) ────
+
+export async function listUsers() {
+    const resp = await api.get(`${ORCHESTRATE_BASE()}/auth/users`);
+    return resp.data;
+}
+
+export async function createUser(payload) {
+    const resp = await api.post(`${ORCHESTRATE_BASE()}/auth/users`, payload);
+    return resp.data;
+}
+
+export async function resetUserPassword(username, newPassword) {
+    const resp = await api.post(
+        `${ORCHESTRATE_BASE()}/auth/users/${encodeURIComponent(username)}/reset-password`,
+        { new_password: newPassword }
+    );
+    return resp.data;
+}
+
+export async function setUserRole(username, role) {
+    const resp = await api.put(
+        `${ORCHESTRATE_BASE()}/auth/users/${encodeURIComponent(username)}/role`,
+        { role }
+    );
+    return resp.data;
+}
+
+export async function deleteUser(username) {
+    const resp = await api.delete(
+        `${ORCHESTRATE_BASE()}/auth/users/${encodeURIComponent(username)}`
+    );
+    return resp.data;
+}
+
 // ──── Business API (used by shared-workflow components via @/service/api.js) ────
 
 export async function getAgentCards() {

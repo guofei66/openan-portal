@@ -16,48 +16,87 @@
 //    under the License.
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import api, { authCheck, login as apiLogin, logout as apiLogout, changePassword as apiChangePassword } from '../service/api.js';
+import api, {
+    authCheck,
+    login as apiLogin,
+    logout as apiLogout,
+    changePassword as apiChangePassword,
+} from '../service/api.js';
 
 const AuthContext = createContext(null);
 
+/**
+ * Auth states:
+ *   - 'checking'        initial state while authCheck() is in flight
+ *   - 'authenticated'   a valid session (or auth disabled server-side)
+ *   - 'guest'           no session, but the server allows read-only browsing
+ *   - 'must-change'     logged in with must_change_password pending; the
+ *                       portal blocks everything until the password is changed
+ *   - 'unauthenticated' no session and guest mode disabled → login screen
+ */
 export function AuthProvider({ children }) {
     const [authState, setAuthState] = useState('checking');
     const [authRequired, setAuthRequired] = useState(false);
+    const [guestAllowed, setGuestAllowed] = useState(false);
+    const [registrationEnabled, setRegistrationEnabled] = useState(false);
     const [currentUser, setCurrentUser] = useState(null);
-    const [role, setRole] = useState(null);
+    const [currentRole, setCurrentRole] = useState(null);
     const [passwordChanged, setPasswordChanged] = useState(false);
 
+    /** Drop back to guest browsing (or the login screen) without a session. */
     const clearIdentity = useCallback(() => {
         setCurrentUser(null);
-        setRole(null);
-        setAuthState('unauthenticated');
+        setCurrentRole(null);
+        if (guestAllowed) {
+            setAuthState('guest');
+        } else {
+            setAuthState('unauthenticated');
+        }
+    }, [guestAllowed]);
+
+    /** Fold one auth/check payload into context state. */
+    const applyCheck = useCallback((data) => {
+        const required = data.auth_required !== false;
+        setAuthRequired(required);
+        setGuestAllowed(Boolean(data.guest_allowed));
+        setRegistrationEnabled(Boolean(data.registration_enabled));
+        if (!required || data.authenticated === true) {
+            setCurrentUser(data.username || null);
+            setCurrentRole(data.role || null);
+            setAuthState(
+                data.must_change_password ? 'must-change' : 'authenticated'
+            );
+        } else if (data.guest_allowed) {
+            setCurrentUser(null);
+            setCurrentRole('guest');
+            setAuthState('guest');
+        } else {
+            setCurrentUser(null);
+            setCurrentRole(null);
+            setAuthState('unauthenticated');
+        }
     }, []);
 
     const checkAuth = useCallback(async () => {
         try {
-            const data = await authCheck();
-            if (data.auth_required === false || data.authenticated === true) {
-                setAuthRequired(data.auth_required !== false);
-                setCurrentUser(data.username || null);
-                setRole(data.role || null);
-                setAuthState(data.must_change_password ? 'password-change-required' : 'authenticated');
-            } else {
-                setAuthRequired(true);
-                clearIdentity();
-            }
+            applyCheck(await authCheck());
         } catch {
-            clearIdentity();
+            setAuthState('unauthenticated');
         }
-    }, [clearIdentity]);
+    }, [applyCheck]);
 
     useEffect(() => {
         checkAuth();
     }, [checkAuth]);
 
-    // Listen for auth-expired events dispatched by the axios interceptor
+    // Listen for auth events dispatched by the axios interceptor:
+    //  - 'auth-expired': an expired session drops back to guest browsing when
+    //    the server allows it, otherwise to the full-screen login
+    //  - 'auth-password-change-required': a 403 with must_change_password
+    //    (e.g. a restored stale session) re-enters the forced change flow
     useEffect(() => {
         const handleExpired = clearIdentity;
-        const handlePasswordChange = () => setAuthState('password-change-required');
+        const handlePasswordChange = () => setAuthState('must-change');
         window.addEventListener('auth-expired', handleExpired);
         window.addEventListener('auth-password-change-required', handlePasswordChange);
         return () => {
@@ -70,11 +109,29 @@ export function AuthProvider({ children }) {
         const data = await apiLogin(username, password);
         setAuthRequired(true);
         setCurrentUser(data.username || username);
-        setRole(data.role || null);
+        setCurrentRole(data.role || 'user');
         setPasswordChanged(false);
-        setAuthState(data.must_change_password ? 'password-change-required' : 'authenticated');
+        setAuthState(data.must_change_password ? 'must-change' : 'authenticated');
         return data;
     }, []);
+
+    /**
+     * Change the signed-in user's password. The backend revokes every session
+     * of the user afterwards; the app drops back to guest/login with a
+     * "please sign in again" notice on the login card.
+     */
+    const changePassword = useCallback(async (oldPassword, newPassword) => {
+        await apiChangePassword(oldPassword, newPassword);
+        clearIdentity();
+        setPasswordChanged(true);
+    }, [clearIdentity]);
+
+    // Used by the ChangePassword screens: the backend revoked the session, so
+    // the next login uses the new password.
+    const completePasswordChange = useCallback(() => {
+        clearIdentity();
+        setPasswordChanged(true);
+    }, [clearIdentity]);
 
     const logout = useCallback(async () => {
         try {
@@ -84,26 +141,26 @@ export function AuthProvider({ children }) {
         }
     }, [clearIdentity]);
 
-    const changePassword = useCallback(async (oldPassword, newPassword) => {
-        await apiChangePassword(oldPassword, newPassword);
-        // The backend revokes all user sessions after a successful change.
-        clearIdentity();
-        setPasswordChanged(true);
-    }, [clearIdentity]);
-
     const value = {
         authState,
         authRequired,
+        guestAllowed,
+        registrationEnabled,
         currentUser,
-        role,
+        currentRole,
         passwordChanged,
-        mustChangePassword: authState === 'password-change-required',
+        mustChangePassword: authState === 'must-change',
+        needsPasswordChange: authState === 'must-change',
         isAuthenticated: authState === 'authenticated',
         isChecking: authState === 'checking',
+        isGuest: authState === 'guest',
+        isAdmin: authState === 'authenticated' && currentRole === 'admin',
         login,
         logout,
         checkAuth,
+        applyCheck,
         changePassword,
+        completePasswordChange,
         api,
     };
 
