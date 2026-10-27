@@ -25,14 +25,18 @@ import api, {
 
 const AuthContext = createContext(null);
 
+/** sessionStorage key marking an explicit "browse as guest" opt-in. */
+const GUEST_ENTRY_KEY = 'openan-guest-entry';
+
 /**
  * Auth states:
  *   - 'checking'        initial state while authCheck() is in flight
  *   - 'authenticated'   a valid session (or auth disabled server-side)
- *   - 'guest'           no session, but the server allows read-only browsing
+ *   - 'guest'           no session, but the visitor chose guest browsing on
+ *                       the login card (and the server allows it)
  *   - 'must-change'     logged in with must_change_password pending; the
  *                       portal blocks everything until the password is changed
- *   - 'unauthenticated' no session and guest mode disabled → login screen
+ *   - 'unauthenticated' no session → login screen (default for visitors)
  */
 export function AuthProvider({ children }) {
     const [authState, setAuthState] = useState('checking');
@@ -43,16 +47,13 @@ export function AuthProvider({ children }) {
     const [currentRole, setCurrentRole] = useState(null);
     const [passwordChanged, setPasswordChanged] = useState(false);
 
-    /** Drop back to guest browsing (or the login screen) without a session. */
+    /** Drop the identity and return to the login screen. */
     const clearIdentity = useCallback(() => {
+        sessionStorage.removeItem(GUEST_ENTRY_KEY);
         setCurrentUser(null);
         setCurrentRole(null);
-        if (guestAllowed) {
-            setAuthState('guest');
-        } else {
-            setAuthState('unauthenticated');
-        }
-    }, [guestAllowed]);
+        setAuthState('unauthenticated');
+    }, []);
 
     /** Fold one auth/check payload into context state. */
     const applyCheck = useCallback((data) => {
@@ -66,7 +67,9 @@ export function AuthProvider({ children }) {
             setAuthState(
                 data.must_change_password ? 'must-change' : 'authenticated'
             );
-        } else if (data.guest_allowed) {
+        } else if (data.guest_allowed && sessionStorage.getItem(GUEST_ENTRY_KEY) === '1') {
+            // Guest browsing is an explicit per-visit choice made on the
+            // login card; it survives reloads but not logins or logouts.
             setCurrentUser(null);
             setCurrentRole('guest');
             setAuthState('guest');
@@ -90,8 +93,8 @@ export function AuthProvider({ children }) {
     }, [checkAuth]);
 
     // Listen for auth events dispatched by the axios interceptor:
-    //  - 'auth-expired': an expired session drops back to guest browsing when
-    //    the server allows it, otherwise to the full-screen login
+    //  - 'auth-expired': an expired session returns to the login screen
+    //    (login is required by default; guest browsing is an explicit choice)
     //  - 'auth-password-change-required': a 403 with must_change_password
     //    (e.g. a restored stale session) re-enters the forced change flow
     useEffect(() => {
@@ -105,8 +108,17 @@ export function AuthProvider({ children }) {
         };
     }, [clearIdentity]);
 
+    /** Explicit guest entry from the login card ("browse as guest"). */
+    const enterAsGuest = useCallback(() => {
+        sessionStorage.setItem(GUEST_ENTRY_KEY, '1');
+        setCurrentUser(null);
+        setCurrentRole('guest');
+        setAuthState('guest');
+    }, []);
+
     const login = useCallback(async (username, password) => {
         const data = await apiLogin(username, password);
+        sessionStorage.removeItem(GUEST_ENTRY_KEY);
         setAuthRequired(true);
         setCurrentUser(data.username || username);
         setCurrentRole(data.role || 'user');
@@ -117,8 +129,8 @@ export function AuthProvider({ children }) {
 
     /**
      * Change the signed-in user's password. The backend revokes every session
-     * of the user afterwards; the app drops back to guest/login with a
-     * "please sign in again" notice on the login card.
+     * of the user afterwards; the app returns to the login card with a
+     * "please sign in again" notice.
      */
     const changePassword = useCallback(async (oldPassword, newPassword) => {
         await apiChangePassword(oldPassword, newPassword);
@@ -155,6 +167,7 @@ export function AuthProvider({ children }) {
         isChecking: authState === 'checking',
         isGuest: authState === 'guest',
         isAdmin: authState === 'authenticated' && currentRole === 'admin',
+        enterAsGuest,
         login,
         logout,
         checkAuth,

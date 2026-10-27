@@ -26,6 +26,7 @@
     "login_button": "Login",
     "guest_badge": "Guest",
     "guest_hint": "Guest mode is read-only — sign in to make changes",
+    "guest_entry": "No account? Browse as guest →",
     "modal_label": "Sign in to OpenAN Portal",
     "change_password_title": "Change Password",
     "old_password": "Current password",
