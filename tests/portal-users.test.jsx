@@ -186,6 +186,11 @@ test('logging in from the guest dialog opens the admin user management page', as
     // Modal closed, header shows the user with the admin entry.
     expect(node.querySelector('[role=dialog]')).toBe(null);
     expect(node.textContent).toContain('boss');
+    // The authenticated header is exclusive: no guest badge and no
+    // login/register entries remain once a real session exists.
+    expect(buttons('Login')).toHaveLength(0);
+    expect(buttons('Register')).toHaveLength(0);
+    expect(node.textContent).not.toContain('Guest');
     await clickByText('User Management');
     expect(window.location.pathname).toBe('/users');
     expect(apiListUsers).toHaveBeenCalled();
