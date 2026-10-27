@@ -8,6 +8,13 @@ vi.mock('../portal/src/service/api.js', () => ({
     authCheck: async () => ({ auth_required: true, authenticated: true, username: 'operator', role: 'admin', must_change_password: state.mustChange }),
     login: async () => ({ username: 'operator', role: 'admin', must_change_password: false }),
     logout: vi.fn(), changePassword: vi.fn(async () => {}),
+    // Per-user plugin preferences mirror the browser-local list while
+    // nothing has been stored server-side yet.
+    getDisabledPlugins: async () => ({
+        disabled_plugins: JSON.parse(localStorage.getItem('openan-disabled-plugins') || '[]'),
+        stored: false,
+    }),
+    setDisabledPlugins: vi.fn(async () => ({})),
 }));
 import { changePassword } from '../portal/src/service/api.js';
 import { PortalApp } from '../portal/src/PortalApp.jsx';

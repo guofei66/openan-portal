@@ -31,6 +31,8 @@ const mocks = vi.hoisted(() => ({
     resetUserPassword: vi.fn(async () => ({})),
     setUserRole: vi.fn(async () => ({})),
     deleteUser: vi.fn(async () => ({})),
+    getDisabledPlugins: vi.fn(),
+    setDisabledPlugins: vi.fn(async () => ({})),
 }));
 vi.mock('../portal/src/service/api.js', () => ({
     default: { get: vi.fn(), post: vi.fn() },
@@ -45,6 +47,8 @@ vi.mock('../portal/src/service/api.js', () => ({
     resetUserPassword: mocks.resetUserPassword,
     setUserRole: mocks.setUserRole,
     deleteUser: mocks.deleteUser,
+    getDisabledPlugins: mocks.getDisabledPlugins,
+    setDisabledPlugins: mocks.setDisabledPlugins,
 }));
 import {
     register as apiRegister,
@@ -53,6 +57,8 @@ import {
     resetUserPassword as apiResetUserPassword,
     setUserRole as apiSetUserRole,
     deleteUser as apiDeleteUser,
+    getDisabledPlugins as apiGetDisabledPlugins,
+    setDisabledPlugins as apiSetDisabledPlugins,
 } from '../portal/src/service/api.js';
 import { PortalApp } from '../portal/src/PortalApp.jsx';
 import i18n from '../portal/src/i18n/index.js';
@@ -114,6 +120,8 @@ beforeEach(async () => {
     mocks.authCheck.mockResolvedValue({ auth_required: true, guest_allowed: true, registration_enabled: true });
     mocks.register.mockResolvedValue({});
     mocks.listUsers.mockResolvedValue(USERS);
+    // Default: the account has already saved (empty) plugin preferences.
+    mocks.getDisabledPlugins.mockResolvedValue({ disabled_plugins: [], stored: true });
 });
 afterEach(async () => {
     await act(async () => root.unmount());
@@ -285,4 +293,34 @@ test('strict servers keep the full-screen login without any guest entry', async 
     expect(node.textContent).not.toContain('HEALTHY_CONTENT');
     expect(node.querySelectorAll('input[type=text]')).toHaveLength(1);
     expect(buttons('No account? Browse as guest →')).toHaveLength(0);
+});
+
+test('signed-in users load their plugin choices from the server', async () => {
+    mocks.authCheck.mockResolvedValue({ auth_required: true, authenticated: true, username: 'boss', role: 'admin' });
+    mocks.getDisabledPlugins.mockResolvedValue({ disabled_plugins: ['healthy'], stored: true });
+    await render([plugin('healthy')]);
+    await flush();
+
+    // The account's saved list hides the plugin; the empty state offers the
+    // manager to re-enable it.
+    expect(node.textContent).not.toContain('HEALTHY_CONTENT');
+    await clickByText('Plugin Management');
+    await click(node.querySelector('button[aria-label="Enable"]'));
+    await flush();
+    expect(node.textContent).toContain('HEALTHY_CONTENT');
+    // Re-enabling saved the new list to the account, not just the browser.
+    expect(apiSetDisabledPlugins).toHaveBeenCalledWith([]);
+});
+
+test('guests keep plugin choices in the browser only', async () => {
+    await render([plugin('healthy')]);
+    await clickByText('No account? Browse as guest →');
+    await click(node.querySelector('button[aria-label="Plugin Management"]'));
+    await click(node.querySelector('button[aria-label="Disable"]'));
+    await flush();
+
+    expect(apiSetDisabledPlugins).not.toHaveBeenCalled();
+    expect(JSON.parse(localStorage.getItem('openan-disabled-plugins'))).toEqual(['healthy']);
+    // The plugin disappeared from the shell.
+    expect(node.textContent).not.toContain('HEALTHY_CONTENT');
 });

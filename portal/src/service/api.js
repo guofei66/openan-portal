@@ -172,6 +172,23 @@ export async function deleteUser(username) {
     return resp.data;
 }
 
+// ──── Per-user plugin preferences ────
+
+// Returns { disabled_plugins: string[], stored: boolean } — `stored: false`
+// means the account never saved preferences (empty list is an explicit
+// "everything enabled").
+export async function getDisabledPlugins() {
+    const resp = await api.get(`${ORCHESTRATE_BASE()}/auth/plugins`);
+    return resp.data;
+}
+
+export async function setDisabledPlugins(pluginIds) {
+    const resp = await api.put(`${ORCHESTRATE_BASE()}/auth/plugins`, {
+        disabled_plugins: pluginIds,
+    });
+    return resp.data;
+}
+
 // ──── Business API (used by shared-workflow components via @/service/api.js) ────
 
 export async function getAgentCards() {

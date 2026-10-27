@@ -32,7 +32,7 @@ import ChangePassword from './auth/ChangePassword.jsx';
 import AuthModal from './auth/AuthModal.jsx';
 import UserManagement from './components/user_management/index.jsx';
 import PluginManager from './components/plugin_manager/index.jsx';
-import api, { createApi } from './service/api.js';
+import api, { createApi, getDisabledPlugins, setDisabledPlugins } from './service/api.js';
 
 import './i18n';
 
@@ -138,9 +138,45 @@ function PortalShell({ pluginsConfig }) {
             else next.add(id);
             try { localStorage.setItem(DISABLED_KEY, JSON.stringify([...next])); }
             catch { console.warn('[Portal] Plugin preference could not be persisted'); }
+            // Signed-in users keep their choices server-side too, so the
+            // preference follows the account instead of the browser.
+            if (auth.isAuthenticated) {
+                setDisabledPlugins([...next]).catch(() => {
+                    console.warn('[Portal] Per-user plugin preference could not be saved');
+                });
+            }
             return next;
         });
-    }, []);
+    }, [auth.isAuthenticated]);
+
+    // Per-user plugin preferences: once signed in, the saved preference list
+    // replaces the browser-local one (guests keep localStorage). A user who
+    // never saved preferences adopts the browser-local list once.
+    useEffect(() => {
+        if (!auth.isAuthenticated) return undefined;
+        let active = true;
+        (async () => {
+            try {
+                const prefs = await getDisabledPlugins();
+                if (!active || !prefs || !Array.isArray(prefs.disabled_plugins)) return;
+                let ids = prefs.disabled_plugins;
+                if (!prefs.stored) {
+                    try {
+                        const localSaved = JSON.parse(localStorage.getItem(DISABLED_KEY) || '[]');
+                        if (Array.isArray(localSaved) && localSaved.length > 0) {
+                            await setDisabledPlugins(localSaved);
+                            ids = localSaved;
+                        }
+                    } catch { /* malformed local data keeps the server list */ }
+                }
+                if (active) setDisabledIds(new Set(ids));
+            } catch {
+                // Preference loading is best-effort: browsing continues with
+                // the browser-local state when the endpoint is unavailable.
+            }
+        })();
+        return () => { active = false; };
+    }, [auth.isAuthenticated]);
 
     // Plugins visible in nav + routes (excluding runtime-disabled)
     const visiblePlugins = useMemo(() => {
