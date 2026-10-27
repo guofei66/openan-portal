@@ -18,7 +18,7 @@
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Sun, Moon, LogOut, Puzzle, ChevronDown } from 'lucide-react';
+import { Sun, Moon, LogOut, Puzzle, ChevronDown, Users, KeyRound } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext.jsx';
 import { useTheme } from '../../theme/ThemeContext.jsx';
 import logo from '../../assets/openan-logo.png';
@@ -36,9 +36,9 @@ import logo from '../../assets/openan-logo.png';
  *     { id: 'abox', labelKey: 'Ontology A-Box', group: 'Ontology', order: 6, route: '/ontology/abox' },
  *   ]
  */
-export default function Header({ plugins, disabledIds, onManagePlugins }) {
+export default function Header({ plugins, disabledIds, onManagePlugins, onLogin, onChangePassword }) {
     const { t, i18n } = useTranslation();
-    const { currentUser, authRequired, logout } = useAuth();
+    const { currentUser, currentRole, authRequired, isAuthenticated, isGuest, registrationEnabled, isAdmin, logout } = useAuth();
     const { isDark, toggle } = useTheme();
     const location = useLocation();
     const navigate = useNavigate();
@@ -199,16 +199,58 @@ export default function Header({ plugins, disabledIds, onManagePlugins }) {
             </div>
 
             {/* Right controls */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
                 <button type="button" onClick={onManagePlugins} title={t('plugin_manager.title')}
                     aria-label={t('plugin_manager.title')} className="p-2 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800">
                     <Puzzle size={18} /><span className="text-xs">{activeCount}{hasDisabled ? `/${plugins.length}` : ''}</span>
                 </button>
-                {authRequired && (
+                {authRequired && isGuest && (
                     <>
-                        <span className="text-xs font-medium text-zinc-400 dark:text-zinc-500">
-                            {currentUser || 'admin'}
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400">
+                            {t('login.guest_badge')}
                         </span>
+                        <button
+                            onClick={() => onLogin?.('login')}
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-500 hover:bg-blue-600 text-white transition-all"
+                        >
+                            {t('login.login_button')}
+                        </button>
+                        {registrationEnabled && (
+                            <button
+                                onClick={() => onLogin?.('register')}
+                                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all"
+                            >
+                                {t('login.register_entry')}
+                            </button>
+                        )}
+                    </>
+                )}
+                {authRequired && isAuthenticated && (
+                    <>
+                        <span className="flex items-center gap-2 text-xs font-medium text-zinc-400 dark:text-zinc-500">
+                            {currentUser || 'admin'}
+                            {isAdmin && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 uppercase tracking-wide">
+                                    {t('users.role_admin')}
+                                </span>
+                            )}
+                        </span>
+                        {isAdmin && (
+                            <button
+                                onClick={() => navigate('/users')}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all"
+                            >
+                                <Users size={14} />
+                                {t('users.title')}
+                            </button>
+                        )}
+                        <button
+                            onClick={() => onChangePassword?.()}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all"
+                        >
+                            <KeyRound size={14} />
+                            {t('login.change_password_title')}
+                        </button>
                         <button
                             onClick={logout}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all"
